@@ -261,15 +261,21 @@ class Tickets(Stream):
             LOGGER.info("Syncing ticket_audits per ticket...")
 
         for ticket in tickets:
+            ticket_dict = ticket.to_dict()
+            if ticket.to_dict()['via']['channel'] == 'api':
+                LOGGER.info("Skipping ticket %s API channel", ticket.id)
+                continue
             zendesk_metrics.capture('ticket')
             generated_timestamp_dt = datetime.datetime.utcfromtimestamp(ticket.generated_timestamp).replace(tzinfo=pytz.UTC)
+
+            LOGGER.info("Timestamp for ticket %s is %s", ticket.id,
+                        generated_timestamp_dt.strftime("%Y-%m-%d %H:%M:%S"))
 
             if check_end_date(ticket, self.config, self.replication_key):
                 break
 
             self.update_bookmark(state, utils.strftime(generated_timestamp_dt))
 
-            ticket_dict = ticket.to_dict()
             ticket_dict.pop('fields') # NB: Fields is a duplicate of custom_fields, remove before emitting
             should_yield = self._buffer_record((self.stream, ticket_dict))
 
